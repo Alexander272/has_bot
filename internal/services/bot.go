@@ -127,6 +127,15 @@ func (s *Service) handleTemp(channelId string, msg string) error {
 	return s.mostClient.SendMessage(channelId, message)
 }
 
+func (s *Service) IsChannelAllowed(channelId string) bool {
+	for _, ch := range s.config.Bot.Channels {
+		if ch.ChannelId == channelId {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Service) getSensorsForChannel(channelId string) []config.SensorConfig {
 	for _, ch := range s.config.Bot.Channels {
 		if ch.ChannelId == channelId {

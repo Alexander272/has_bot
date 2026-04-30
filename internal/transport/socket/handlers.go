@@ -143,6 +143,11 @@ func (h *Handler) safeHandleEvent(event *model.WebSocketEvent) {
 func (h *Handler) handleEvent(event *model.WebSocketEvent) {
 	channelId := event.GetBroadcast().ChannelId
 
+	if !h.service.IsChannelAllowed(channelId) {
+		logger.Debug("ignoring message from unauthorized channel", logger.AnyAttr("channel", channelId))
+		return
+	}
+
 	post, err := h.parsePost(event)
 	if err != nil {
 		logger.Error("failed to parse post", logger.ErrAttr(err))
