@@ -1,17 +1,22 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/Alexander272/HasBot/internal/config"
 	"github.com/Alexander272/HasBot/internal/services"
+	"github.com/Alexander272/HasBot/internal/transport/httpapi"
 	"github.com/Alexander272/HasBot/internal/transport/socket"
 	"github.com/Alexander272/HasBot/pkg/homeassistant"
 	"github.com/Alexander272/HasBot/pkg/logger"
 	"github.com/Alexander272/HasBot/pkg/mattermost"
+	"github.com/gin-gonic/gin"
 	"github.com/subosito/gotenv"
 )
 
@@ -50,7 +55,31 @@ func main() {
 		Token: conf.HomeAssistant.Token,
 	})
 
-	service := services.NewService(haClient, mostClient, conf)
+	channelsStore, err := config.NewChannelsStore("configs/channels.yaml")
+	if err != nil {
+		log.Fatalf("failed to init channels store. error: %s", err.Error())
+	}
+
+	service := services.NewService(haClient, mostClient, conf, channelsStore)
+
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
+	router.Use(gin.Recovery())
+
+	apiHandler := httpapi.NewHandler(service)
+	apiHandler.Register(router)
+
+	apiServer := &http.Server{
+		Addr:    ":" + conf.API.Port,
+		Handler: router,
+	}
+
+	go func() {
+		logger.Info("starting API server", logger.StringAttr("port", conf.API.Port))
+		if err := apiServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("API server error", logger.ErrAttr(err))
+		}
+	}()
 
 	if !mostClient.Connect() {
 		log.Fatalf("failed to connect to mattermost websocket")
@@ -68,4 +97,8 @@ func main() {
 	<-quit
 
 	socHandler.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	apiServer.Shutdown(ctx)
 }

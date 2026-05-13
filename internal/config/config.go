@@ -11,8 +11,13 @@ type (
 		Environment   string              `yaml:"environment" env:"APP_ENV" env-default:"dev"`
 		LogLevel      string              `yaml:"log_level" env-default:"info"`
 		LogSource     bool                `yaml:"log_source" env-default:"false"`
+		API           APIConfig           `yaml:"api"`
 		HomeAssistant HomeAssistantConfig `yaml:"homeassistant"`
 		Bot           BotConfig           `yaml:"bot"`
+	}
+
+	APIConfig struct {
+		Port string `yaml:"port" env:"API_PORT" env-default:"8080"`
 	}
 
 	HomeAssistantConfig struct {
@@ -21,21 +26,10 @@ type (
 	}
 
 	BotConfig struct {
-		Server  string          `yaml:"server" env:"MOST_SERVER"`
-		Token   string          `yaml:"token" env:"MOST_TOKEN"`
-		Channels []ChannelConfig `yaml:"channels"`
+		Server string `yaml:"server" env:"MOST_SERVER"`
+		Token  string `yaml:"token" env:"MOST_TOKEN"`
 	}
 
-	ChannelConfig struct {
-		ChannelId string         `yaml:"channel_id"`
-		Sensors   []SensorConfig `yaml:"sensors"`
-	}
-
-	SensorConfig struct {
-		Name     string `yaml:"name"`
-		EntityID string `yaml:"entity_id"`
-		Room     string `yaml:"room"`
-	}
 )
 
 func Init(path string) (*Config, error) {
@@ -47,3 +41,5 @@ func Init(path string) (*Config, error) {
 
 	return &conf, nil
 }
+
+

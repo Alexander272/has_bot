@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Alexander272/HasBot/internal/config"
+	"github.com/Alexander272/HasBot/internal/models"
 	"github.com/Alexander272/HasBot/pkg/homeassistant"
 	"github.com/Alexander272/HasBot/pkg/logger"
 	"github.com/Alexander272/HasBot/pkg/mattermost"
@@ -14,17 +15,19 @@ type Service struct {
 	haClient   *homeassistant.Client
 	mostClient *mattermost.Client
 	config     *config.Config
+	channels   *config.ChannelsStore
 }
 
 func (s *Service) Config() *config.Config {
 	return s.config
 }
 
-func NewService(haClient *homeassistant.Client, mostClient *mattermost.Client, cfg *config.Config) *Service {
+func NewService(haClient *homeassistant.Client, mostClient *mattermost.Client, cfg *config.Config, ch *config.ChannelsStore) *Service {
 	return &Service{
 		haClient:   haClient,
 		mostClient: mostClient,
 		config:     cfg,
+		channels:   ch,
 	}
 }
 
@@ -68,7 +71,7 @@ func (s *Service) handleTemp(channelId string, msg string) error {
 
 	sensors := s.getSensorsForChannel(channelId)
 
-	var filteredSensors []config.SensorConfig
+	var filteredSensors []models.SensorConfig
 
 	noArgs := len(cmdArgs) == 0
 
@@ -97,7 +100,7 @@ func (s *Service) handleTemp(channelId string, msg string) error {
 		return s.mostClient.SendMessage(channelId, "Нет доступных датчиков.")
 	}
 
-	roomSensors := make(map[string][]config.SensorConfig)
+	roomSensors := make(map[string][]models.SensorConfig)
 	for _, sensor := range filteredSensors {
 		room := sensor.Room
 		if room == "" {
@@ -128,27 +131,29 @@ func (s *Service) handleTemp(channelId string, msg string) error {
 }
 
 func (s *Service) IsChannelAllowed(channelId string) bool {
-	for _, ch := range s.config.Bot.Channels {
-		if ch.ChannelId == channelId {
-			return true
-		}
-	}
-	return false
+	return s.channels.IsAllowed(channelId)
 }
 
-func (s *Service) getSensorsForChannel(channelId string) []config.SensorConfig {
-	for _, ch := range s.config.Bot.Channels {
-		if ch.ChannelId == channelId {
-			return ch.Sensors
-		}
-	}
-	return []config.SensorConfig{}
+func (s *Service) getSensorsForChannel(channelId string) []models.SensorConfig {
+	return s.channels.GetSensors(channelId)
+}
+
+func (s *Service) GetChannels() []models.ChannelConfig {
+	return s.channels.GetAll()
+}
+
+func (s *Service) ReplaceChannels(channels []models.ChannelConfig) error {
+	return s.channels.ReplaceAll(channels)
+}
+
+func (s *Service) DeleteChannel(channelId string) error {
+	return s.channels.Delete(channelId)
 }
 
 func (s *Service) handleHelp(channelId string) error {
 	sensors := s.getSensorsForChannel(channelId)
 
-	roomSensors := make(map[string][]config.SensorConfig)
+	roomSensors := make(map[string][]models.SensorConfig)
 	for _, sensor := range sensors {
 		room := sensor.Room
 		if room == "" {
